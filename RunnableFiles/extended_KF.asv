@@ -1,0 +1,69 @@
+%%%%%%%%%%%%%%%% Given matrices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %Mass Matrix (Rigid body + Added mass):
+% M = [ 6.8177e6       0           0;
+%          0       7.8784e6    -2.5955e6;
+%          0      -2.5955e6       3.58e9];
+
+M_inv = inv(M);
+
+%Damping matrix
+% D = [2.6486e5       0           0;
+%         0       8.8164e5        0;
+%         0           0        3.3774e8];     
+%%%%%%%%%%%%%%%%%%%%%%%Wave frequency constants %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+%Fossen page 217: Assuming jonswap
+zetan_1 = 0.1; zetan_2 = 0.1; zetan_3 = 0.1;
+wn_1 = 2*pi/9; wn_2 = 2*pi/9; wn_3 = 2*pi/9; %(Tp = 9 sec)
+
+%Noise filter gain
+Kw_1 = 1; Kw_2 = 1; Kw_3 = 1;
+%Diagonal bias scaling matrix parameters
+E_b1 = 1; E_b2 = 1; E_b3 = 1;
+%Bias time constants
+%Studass sa dette var typisk høy grad, for å kunne garantere at b_dot går mot null når t går mot inf
+Tb_1 = 1000; Tb_2 = 1000; Tb_3 = 1000;
+
+Zetan = [zetan_1, zetan_2, zetan_3];
+Wn =[wn_1, wn_2, wn_3];
+Kw = [Kw_1, Kw_2,Kw_3];
+Tb = [Tb_1,Tb_2, Tb_3];
+
+%%%%%%%%%%%%%%%%%%%%%%% Other %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Number of forces u is divided into -> 3DOF -> Bu = I_3x3
+pN = 3;
+
+% Step Length
+h=0.1; 
+
+%%%%%%%%%%%%%%% Design Parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%To do: Tune, skal de være større?
+R_kf = diag([1,1,1]);  
+Q_kf = diag([1,1,1,1,1,1]);
+
+%Initial conditions:[Ksi, eta, b, nu]
+x0= [0,0,,1,1,1,       0,0,0,  1,1,1,  0,0,0]'; 
+P0 = 10^(7)*diag([1,1,1,1,1,1, 1,1,1,  1,1,1,  1,1,1]);
+% x0= [0,0,0,0,0,0,       0,0,0,  1,1,1,  0,0,0]'; 
+% P0 = 10^(7)*diag([0,0,0,0,0,0, 0,0,0,  1,1,1,  0,0,0]);
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%% State Matrices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% x_dot = f(x) + Bu + Ew, y = Hx +v
+
+Aw_kf = [zeros(3,3) eye(3) ; 
+    diag([Wn(1), Wn(2), Wn(3)]) diag([-2*Zetan(1)*Wn(1), -2*Zetan(2)*Wn(2), -2*Zetan(3)*Wn(3)])];
+
+B_kf = [zeros(6,3) ; zeros(3,3) ; zeros(3,3) ; M_inv];
+
+E_w = [zeros(3,3) ; diag([Kw_1, Kw_2, Kw_3])];
+E_b = diag([E_b1, E_b2, E_b3]);
+E_kf = [E_w zeros(6,3) ; zeros(3,3) zeros(3,3) ; zeros(3,3) E_b ; zeros(3,3) zeros(3,3)];
+
+C_w = [zeros(3,3) eye(3)];
+H_kf = [C_w eye(3) zeros(3,6)]; 
+
+
+
+save('ExtendedKalmanFilter.mat')
